@@ -1,0 +1,257 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>HueControl</title>
+</head>
+<body>
+    <div data-role="page" class="page type-interior pluginConfigurationPage hueConfigurationPage" data-require="emby-select,emby-checkbox,emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <form class="hueConfigurationForm">     
+                        <div>
+                            <div class="inputContainer">
+                                <input is="emby-input" type="text" id="txtHueUrl" name="txtHueUrl" required="required" placeholder="0.0.0.0" />
+                                <div class="fieldDescription">
+                                    Hue URL:
+                                </div>
+                            </div>
+                            <button is="emby-button" type="button" class="raised button-cancel block" id="getAPI"><span>Get Bridge API</span></button> 
+                            
+                            <button is="emby-button" type="button" class="raised button-cancel block" id="testHue">
+                                <span>Re-Load Groups</span>
+                            </button>
+                             
+                        </div>
+                        <div>
+                            <div class="listItem">
+                                <i class="listItemIcon md-icon" id="BridgeStatusIcon"></i>
+                                <div class="listItemBody">
+                                    <div class="listItemBodyText" id="BridgeStatus"></div>
+                                </div>
+                            </div>
+
+
+
+                           <!-- <h2 id="BridgeStatus" style="color:red"></h2> -->
+                        </div>
+                    <br />
+                    <h1>Emby Device Configuration</h1>
+
+                        <div class="inputContainer">
+                            <select is="emby-select" id="selectDevice" name="selectDevice" label="Emby Device:"></select>
+                        </div>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="chkEnabled" /><span>Enable for this device</span>
+                        </label>
+
+                            <div class="inputContainer">
+                                <select is="emby-select" id="selectLightGroup" name="selectLightGroup" label="Hue Light Group to Control"></select>
+                            </div>
+                            <!--<input is="emby-input" type="number" step="1" id="txtPlayTime" name="txtPlayTime" required="required" placeholder="0" label="Dim Down transition time (ms)" />-->
+                            <input is="emby-input" type="number" step="1" id="txtStopTime" name="txtStopTime" required="required" label="Dim Up transition time (100ms)" />
+                        <div>
+                            <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                        </div>
+</form>
+                </div>
+            </div> 
+<script type="text/javascript">
+    (function () {
+
+        var pluginId = "C99BAA29-5BE5-4A4E-94B3-13248F052B0F";
+
+        $('.hueConfigurationPage').on('pageinit', function (event) {
+            var page = this;
+
+            $('#selectDevice', page).on('change', function () {
+                loadDeviceConfig(page, this.value);
+            });
+
+
+            //Test Bridge
+            $('#testHue', page).on('click', function () {
+                GetAvailableLightGroups(page);
+            });
+
+            //Get Bridge API
+            $('#getAPI', page).on('click', function () {
+                var hueIp = $('#txtHueUrl', page).val();
+                $('#BridgeStatus').html("");
+                $('#BridgeStatusIcon').html("");
+
+                var onError = function () {
+                    //alert("There was an error sending the test notification. Please check your notification settings and try again.");
+                    $('#BridgeStatus').html("Unkown error. Check Hue URL");
+                    $('#BridgeStatusIcon').html("error");
+
+                    require(['alert'], function (alert) {
+                        Dashboard.hideLoadingMsg();
+                    });
+                };
+
+                Dashboard.showLoadingMsg();
+
+                ApiClient.ajax({
+                    type: "GET",
+                    dataType: 'text',
+                    url: ApiClient.getUrl("AddBridge?BridgeIP=" + hueIp)
+                }).then(function (data) {
+                    if (data == "success") {
+                        $('#BridgeStatus').html("Success");
+                        $('#BridgeStatusIcon').html("check");
+                        GetAvailableLightGroups(page);
+                    }else{
+                        $('#BridgeStatusIcon').html("error");
+                        $('#BridgeStatus').html(data);
+                    }
+                    Dashboard.hideLoadingMsg();
+                }, onError);
+
+            });
+        }).on('pageshow', function (event) {
+            
+            var page = this;
+
+            loadBaseConfig(page);
+
+            getEmbyDevice(page);
+
+            function loadBaseConfig(page) {
+
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+
+                    var bridgeConfig = config.bridge || {};
+
+                    $('#txtHueUrl', page).val(bridgeConfig.HueIP || '');
+
+                    GetAvailableLightGroups();
+
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function getEmbyDevice(page) {
+            ApiClient.getJSON(ApiClient.getUrl("Devices", { SupportsPersistentIdentifier: !0 }
+            )).then(function (result) {
+                console.log(result);
+                console.log(result.Items);
+                var a = result.Items;
+                $('#selectDevice', page).html($.map(a, function (user) {
+                    return '<option value="' + user.Id + '">' + user.Name + ' ( ' + user.AppName+ ')</option>';
+                })).selectmenu('refresh').trigger('change');
+            });
+            
+        }
+
+            });
+
+        function GetAvailableLightGroups(page) {
+            Dashboard.showLoadingMsg();
+
+            var hueIp = $('#txtHueUrl', page).val();
+
+            $('#selectLightGroup', page).html("");
+
+            var onError = function () {
+                console.log("Unknown Error Getting Light Group");
+                
+                $('#BridgeStatusIcon').html("error");
+                $('#BridgeStatus').html('Unable to get light groups. Check URL');
+                Dashboard.hideLoadingMsg();
+            }
+
+            ApiClient.ajax({
+                type: "GET",
+                dataType: 'json',
+                url: ApiClient.getUrl("GetLightGroups?BridgeIP=" + hueIp)
+
+            }).then(function (data) {
+                console.log(data);
+                console.log(data[0]);
+                //console.log(data[0].error.description);
+                var e = data[0];
+                if (typeof e != 'undefined') {
+                    if (data[0].error.type == 1) {
+                        $('#BridgeStatusIcon').html("error");
+                        $('#BridgeStatus').html("Unautroized User. Try generating a new api");
+                    } else {
+                        $('#BridgeStatusIcon').html("error");
+                        $('#BridgeStatus').html(data[0].error.description);
+                    }
+                } else {
+                    $('#BridgeStatusIcon').html("check");
+                    $('#BridgeStatus').html("Success");
+                    $('#selectLightGroup', page).html($.map(data, function (group, key) {
+                        return '<option value="' + key + '">' + group.name + '</option>';
+                    }));
+                }
+
+
+                Dashboard.hideLoadingMsg();
+            }, onError);
+        }
+
+
+        function loadDeviceConfig(page, deciveId) {
+
+            Dashboard.showLoadingMsg();
+
+            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                var hueConfig = config.Options.filter(function (c) {
+                    return deciveId == c.embyDeviceID;
+                })[0] || {};
+
+                $('#chkEnabled', page).checked(hueConfig.Enabled || false).checkboxradio("refresh");
+                $('#selectLightGroup', page).val(hueConfig.LightGroupNumber || '');
+              //  $('#txtPlayTime', page).val(hueConfig.OnPlay_TransitionTime || '');
+                $('#txtStopTime', page).val(hueConfig.OnStop_TransitionTime || '');
+
+                Dashboard.hideLoadingMsg();
+
+            });
+
+        }
+
+        $('.hueConfigurationForm').on('submit', function (e) {
+            
+            Dashboard.showLoadingMsg();
+            
+            var form = this;
+
+            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                var deviceId = $('#selectDevice', form).val();
+                var hueConfig = config.Options.filter(function (c) {
+
+                    return deviceId == c.embyDeviceID;
+                })[0];
+
+                if (!hueConfig) {
+                    hueConfig = {};
+                    config.Options.push(hueConfig);
+                }
+
+                hueConfig.embyDeviceID = deviceId;
+                hueConfig.Enabled = $('#chkEnabled', form).checked();
+                hueConfig.LightGroupNumber = $('#selectLightGroup', form).val();
+             //   hueConfig.OnPlay_TransitionTime = $('#txtPlayTime', form).val();
+                hueConfig.OnStop_TransitionTime = $('#txtStopTime', form).val();
+                
+                ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+
+            });
+
+
+
+            return false;
+
+        });
+    })();       
+</script>
+
+
+
+    </div>
+</body>
+</html>
