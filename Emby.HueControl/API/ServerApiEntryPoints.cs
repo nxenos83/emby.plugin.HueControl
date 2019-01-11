@@ -79,7 +79,11 @@ namespace Emby.WebhHueControl.API
 
         public string Get(FindBridges request)
         {
-            var response = _httpClient.Get("http://www.meethue.com/api/nupnp", new System.Threading.CancellationToken());
+            var response =_httpClient.Get(new HttpRequestOptions(){
+                LogErrors = true,
+                Url = "http://meethue.com/api/nupnp"
+            });
+            //var response = _httpClient.Get("http://www.meethue.com/api/nupnp", new System.Threading.CancellationToken());
             response.Wait();
 
             StreamReader reader = new StreamReader(response.Result);
@@ -93,7 +97,10 @@ namespace Emby.WebhHueControl.API
             var response = _httpClient.Post(new HttpRequestOptions()
             {
                 Url = "http://" + request.BridgeIP + "/api",
-                RequestContent = "{\"devicetype\":\"emby_server#emby\"}",
+                //For Emby Server 3.5
+                //RequestContent = "{\"devicetype\":\"emby_server#emby\"}",
+                //Fix for Emby Server version 3.6
+                RequestContent = "{\"devicetype\":\"embey_server#emby\"}".AsMemory(),
                 RequestContentType= "text/json"
             });
             response.Wait();
@@ -145,7 +152,11 @@ namespace Emby.WebhHueControl.API
 
         public string TestHue(string IP, string API)
         {
-            var r = _httpClient.Get("http://" + IP + "/api/" + API, new System.Threading.CancellationToken());
+            //var r = _httpClient.Get("http://" + IP + "/api/" + API, new System.Threading.CancellationToken());
+            var r = _httpClient.Get(new HttpRequestOptions(){
+                LogErrors = true,
+                Url = "http://" + IP + "/api/" + API
+            });
             r.Wait();
             HueResponse a = _jsonSerializer.DeserializeFromStream<HueResponse>(r.Result);
 
@@ -173,7 +184,11 @@ namespace Emby.WebhHueControl.API
 
             _logger.Debug("Getting light groups from " + URL);
 
-            var response = _httpClient.Get("http://" + IP + "/api/" + API + "/groups", new System.Threading.CancellationToken());
+            //var response = _httpClient.Get("http://" + IP + "/api/" + API + "/groups", new System.Threading.CancellationToken());
+            var response = _httpClient.Get(new HttpRequestOptions(){
+                LogErrorResponseBody = true,
+                Url = "http://" + IP + "/api/" + API + "/groups"
+            });
             response.Wait();
             
             StreamReader reader = new StreamReader(response.Result);

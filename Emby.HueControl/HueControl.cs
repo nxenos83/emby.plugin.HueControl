@@ -186,7 +186,9 @@ namespace Emby.HueControl
             await _httpClient.SendAsync(new HttpRequestOptions
             {
                 Url = url,
-                RequestContent = data
+                //Fix for Emby Server 3.6
+                RequestContent = data.AsMemory()
+                //RequestContent = data
             }, "PUT");
             }
             catch (Exception e)
@@ -211,7 +213,9 @@ namespace Emby.HueControl
                 await _httpClient.SendAsync(new HttpRequestOptions
                 {
                     Url = url,
-                    RequestContent = data
+                    //Fix for Emby Server 3.6
+                    RequestContent = data.AsMemory()
+                    //RequestContent = data
                 }, "PUT");
             }catch (Exception e)
             {
